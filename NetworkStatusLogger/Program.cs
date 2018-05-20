@@ -11,7 +11,7 @@ namespace NetworkStatusLogger
     {
         static Logger logger;
 
-        const string configstr = @"C:\Users\masay\source\repos\NetworkStatusLogger\NetworkStatusLogger\bin\Debug\netcoreapp2.0\netstate.xml";
+        const string configstr = @"C:\Users\USR\source\repos\NetworkStatusLogger\NetworkStatusLogger\bin\Debug\netcoreapp2.0\netstate.xml";
         private static int pingCnt = 10;
         private const int timeout = 1200;
         public static Datas.Config config = null;
