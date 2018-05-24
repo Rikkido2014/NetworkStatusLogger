@@ -11,12 +11,13 @@ namespace NetworkStatusLogger
     {
         static Logger logger;
 
-        const string configstr = @"C:\Users\USR\source\repos\NetworkStatusLogger\NetworkStatusLogger\bin\Debug\netcoreapp2.0\netstate.xml";
+        //const string configstr = @"C:\Users\USR\source\repos\NetworkStatusLogger\NetworkStatusLogger\bin\Debug\netcoreapp2.0\netstate.xml";
+        const string configstr = "/etc/netlog/netconfig.xml";
         private static int pingCnt = 10;
         private const int timeout = 1200;
         public static Datas.Config config = null;
 
-        static void Main(string[] args)
+        static int Main(string[] args)
         {
 
 
@@ -28,10 +29,12 @@ namespace NetworkStatusLogger
                 config = new Datas.Config();
                 config.Adresses = new System.Collections.Generic.List<string>();
                 config.Adresses.Add("");
-                config.Span = new TimeSpan(0, 0, 10);
+                config.Span = new TimeSpan(0, 0, 45);
+                config.LogFilePath = "/var/log/netStatus/net.log";
                 string cfg = xml<Datas.Config>.SerializeXml(config);
                 using (TextWriter writer = new StreamWriter(configstr))
                 {
+
                     writer.Write(cfg);
                     writer.Flush();
                     writer.Close();
@@ -49,16 +52,31 @@ namespace NetworkStatusLogger
             //メイン関数
             while (true)
             {
-                foreach (var address in config.Adresses)
+                try
                 {
-                    IPHostEntry iPHost = Dns.GetHostEntry(address);
-                    Datas.PingData data = ping(iPHost.AddressList[0], timeout, pingCnt);
-                    data.iPHostEntry = iPHost;
-                    if (Logging(data)) break;
+                    foreach (var addressStr in config.Adresses)
+                    {
+                        IPAddress address = IPAddress.Any;
+                        Datas.PingData data = new Datas.PingData();
+                        if(IPAddress.TryParse(addressStr,out address) == false)
+                        {
+                            IPHostEntry iPHost = Dns.GetHostEntry(address);
+                            address = iPHost.AddressList[0];
+                            data.iPHostEntry = iPHost;
+                            
+                        }                        
+                        data = ping(address, timeout, pingCnt);                       
+                        if (Logging(data)) break;
+                    }
+                    System.Threading.Thread.Sleep(config.Span);
                 }
-                System.Threading.Thread.Sleep(config.Span);
-            }
+                catch(Exception ex)
+                {
+                    Console.WriteLine(ex.ToString());
+                }
 
+            }
+            return 0;
         }
 
         ~Program()
@@ -110,7 +128,6 @@ namespace NetworkStatusLogger
                 long TotalTime = new long();
                 for (int cnt = 0; cnt < count; cnt++)
                 {
-
                     var reply = ping.Send(address, timeout);
                     if (reply.Status == IPStatus.Success)
                     {
