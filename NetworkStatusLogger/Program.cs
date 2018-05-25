@@ -4,6 +4,7 @@ using System.IO;
 using System.Net.NetworkInformation;
 using System.Net;
 using System.Text.RegularExpressions;
+using System.Collections.Generic;
 
 namespace NetworkStatusLogger
 {
@@ -14,14 +15,14 @@ namespace NetworkStatusLogger
         //const string configstr = @"C:\Users\USR\source\repos\NetworkStatusLogger\NetworkStatusLogger\bin\Debug\netcoreapp2.0\netstate.xml";
         const string configstr = "/etc/netlog/netconfig.xml";
         private static int pingCnt = 10;
-        private const int timeout = 1200;
+        private const int timeout = 2048;
         public static Datas.Config config = null;
 
         static int Main(string[] args)
         {
 
 
-            
+
             Console.WriteLine($"Read Config File at {configstr}");
             //コンフィグファイルのチェック
             if (!FileCheck(configstr))
@@ -58,25 +59,34 @@ namespace NetworkStatusLogger
                     {
                         IPAddress address = IPAddress.Any;
                         Datas.PingData data = new Datas.PingData();
-                        if(IPAddress.TryParse(addressStr,out address) == false)
+                        //セーブ記載のデータがIPアドレスでなかった（ドメイン）だった時の処理
+                        if (IPAddress.TryParse(addressStr, out address) == false)
                         {
                             IPHostEntry iPHost = Dns.GetHostEntry(address);
                             address = iPHost.AddressList[0];
                             data.iPHostEntry = iPHost;
-                            
-                        }                        
-                        data = ping(address, timeout, pingCnt);                       
-                        if (Logging(data)) break;
+
+                        }
+                        data = network.DoPing(address, timeout, pingCnt);
+                        if (!Logging(data)) break;
+                        //以下到達できなかった時のトレースコード
+                        var traceData = network.TraceRoute(address, 2, 2048);
+                        int Routes = 0;
+                        logger.writeText("TracePahse...");
+                        foreach(var traceDetum in traceData)
+                        {
+                            logger.writeText($"[{Routes}]: {traceDetum.reply.Address} / {traceDetum.reply.RoundtripTime} ms | {traceDetum.reply.Status.ToString()}");
+                        }
                     }
                     System.Threading.Thread.Sleep(config.Span);
                 }
-                catch(Exception ex)
+                catch (Exception ex)
                 {
                     Console.WriteLine(ex.ToString());
                 }
 
             }
-            return 0;
+
         }
 
         ~Program()
@@ -104,40 +114,14 @@ namespace NetworkStatusLogger
             IPHostEntry iPHost = Dns.GetHostEntry(data.Reply.Address);
             switch (data.Reply.Status)
             {
-                case IPStatus.Success: logger.log($"SUCCEED TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.Connect); break;
-                case IPStatus.TimedOut: logger.log($"TIMEOUT TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
-                case IPStatus.BadDestination: logger.log($"BADROUTE TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime } ms", Logger.status.DisConnect); break;
-                case IPStatus.Unknown: logger.log($"UNKNOWN TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
-                default: logger.log($"SOMEREASON TO{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
+                case IPStatus.Success: logger.logState($"SUCCEED TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.Connect); break;
+                case IPStatus.TimedOut: logger.logState($"TIMEOUT TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
+                case IPStatus.BadDestination: logger.logState($"BADROUTE TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime } ms", Logger.status.DisConnect); break;
+                case IPStatus.Unknown: logger.logState($"UNKNOWN TO:{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
+                default: logger.logState($"SOMEREASON TO{data.iPHostEntry.HostName} TIME_AVE:{data.AveragePingTime} ms", Logger.status.DisConnect); break;
             }
-            return data.Reply.Status == IPStatus.Success ? true : false;
+            return data.Reply.Status == IPStatus.Success;
         }
-        /// <summary>
-        /// ping送信関数
-        /// </summary>
-        /// <param name="address">アドレス</param>
-        /// <param name="timeout">タイムアウト時間</param>
-        /// <param name="count">ping送信回数</param>
-        /// <returns>統計データ</returns>
-        static public Datas.PingData ping(IPAddress address, int timeout, int count)
-        {
-            var dReply = new Datas.PingData();
 
-            using (Ping ping = new Ping())
-            {
-                long TotalTime = new long();
-                for (int cnt = 0; cnt < count; cnt++)
-                {
-                    var reply = ping.Send(address, timeout);
-                    if (reply.Status == IPStatus.Success)
-                    {
-                        TotalTime += reply.RoundtripTime;
-                        dReply.Reply = reply;
-                    }
-                }
-                dReply.AveragePingTime = TotalTime / count;
-            }
-            return dReply;
-        }
     }
 }

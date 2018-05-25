@@ -1,5 +1,7 @@
 ﻿using System.Net;
 using System.Net.NetworkInformation;
+using System;
+using System.Collections.Generic;
 
 namespace NetworkStatusLogger.Datas
 {
@@ -8,5 +10,6 @@ namespace NetworkStatusLogger.Datas
         public PingReply Reply { get; set; }
         public IPHostEntry iPHostEntry { get; set; }
         public decimal AveragePingTime { get; set; }
+        
     }
 }

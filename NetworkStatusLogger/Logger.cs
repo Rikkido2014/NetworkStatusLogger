@@ -18,13 +18,22 @@ namespace NetworkStatusLogger
                 textWriter = new StreamWriter(path, true);
         }
 
-        public void log(string msg,status state)
+        public void logState(string msg,status state)
         {
             string logmsg = null;
             logmsg += DateTime.Now.ToString("yyyy MM dd hh:mm:ss");
             logmsg += state == status.Connect ? " [Connected]".PadRight(15):" [DisConnected]".PadRight(15);
             logmsg += msg;
             textWriter.WriteLine(logmsg);
+            textWriter.Flush();
+        }
+
+        public void writeText(string msg)
+        {
+            string logmsg = null;
+            logmsg += DateTime.Now.ToString("yyyy MM dd hh:mm:ss");
+            logmsg += msg;
+            textWriter.WriteLine(msg);
             textWriter.Flush();
         }
         public enum status
